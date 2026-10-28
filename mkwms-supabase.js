@@ -24,37 +24,43 @@ async function loadWorkspace(user) {
     return;
   }
 
+  const fetchAll = async query => {
+    const rows = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await query().range(offset, offset + 999);
+      if (error) return { data: null, error };
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    return { data: rows, error: null };
+  };
+  const fetchRecent = async query => {
+    const { data, error } = await query().range(0, 199);
+    return { data, error };
+  };
   const [warehouseResult, productResult, balanceResult, partnerResult, inboundResult, outboundResult, deliveryResult, deliveryLineResult, movementResult, adjustmentResult, transferResult, profileResult, scopeResult, auditResult, documentResult] = await Promise.all([
-    supabase.from('warehouses').select('id,code,name,address,active').eq('active', true).order('name'),
-    supabase.from('products').select('id,sku,name,category,brand,unit,package_spec,minimum_stock,active').order('sku'),
-    supabase.from('stock_balances').select('warehouse_id,product_id,location_code,lot_code,on_hand_quantity,reserved_quantity,available_quantity,updated_at'),
-    supabase.from('partners').select('id,partner_code,partner_type,name,tax_code,address,contact_name,phone,email,active').order('name'),
-    supabase.from('inbound_orders').select('id,document_code,inbound_type,supplier_id,status,created_on,delivery_on,receiver_name,receiver_phone,warehouse_id,created_by,created_at,created_by_profile:profiles!inbound_orders_created_by_fkey(full_name),partners(name),inbound_order_lines(id,product_id,expected_quantity,received_quantity,location_code,lot_code,products(sku,name,unit))').order('created_at', { ascending: false }),
-    supabase.from('outbound_orders').select('id,document_code,outbound_type,partner_id,partner_name,status,created_on,expected_delivery_date,receiver_name,receiver_phone,delivery_address,warehouse_id,created_by,created_at,created_by_profile:profiles!outbound_orders_created_by_fkey(full_name),partners(name),outbound_order_lines(id,product_id,requested_quantity,reserved_quantity,issued_quantity,location_code,lot_code,products(sku,name,unit))').order('created_at', { ascending: false }),
-    supabase.from('delivery_orders').select('id,delivery_code,outbound_order_id,delivery_sequence,status,expected_delivery_date,receiver_name,receiver_phone,delivery_address,carrier_name,driver_name,driver_phone,vehicle_plate,actual_delivery_at,received_by,proof_path,updated_at,created_at,outbound_orders(document_code,warehouse_id)').order('created_at', { ascending: false }),
-    supabase.from('delivery_order_lines').select('delivery_order_id,outbound_order_line_id,quantity_delivered'),
-    supabase.from('inventory_movements').select('id,warehouse_id,product_id,movement_type,quantity_delta,source_type,source_id,location_code,lot_code,created_by,created_at').order('created_at',{ascending:false}).limit(1000),
-    supabase.from('stock_adjustments').select('id,document_code,warehouse_id,reason,status,created_by,approved_by,created_at,approved_at,posted_at,stock_adjustment_lines(id,product_id,location_code,lot_code,counted_quantity,system_quantity,quantity_delta)').order('created_at',{ascending:false}),
-    supabase.from('stock_transfers').select('id,document_code,from_warehouse_id,to_warehouse_id,status,created_by,created_at,stock_transfer_lines(id,product_id,quantity,from_location_code,from_lot_code,to_location_code,to_lot_code)').order('created_at',{ascending:false}),
-    supabase.from('profiles').select('user_id,email,full_name,role,active,created_at').order('full_name'),
-    supabase.from('user_warehouses').select('user_id,warehouse_id'),
-    supabase.from('audit_log').select('id,actor_id,action,entity_type,entity_id,details,created_at,actor:profiles(full_name)').order('created_at',{ascending:false}).limit(200),
-    supabase.from('order_documents').select('id,warehouse_id,inbound_order_id,delivery_order_id,file_name,storage_path,mime_type,file_size,uploaded_by,created_at').order('created_at',{ascending:false}),
+    fetchAll(() => supabase.from('warehouses').select('id,code,name,address,active').eq('active', true).order('name').order('id')),
+    fetchAll(() => supabase.from('products').select('id,sku,name,category,brand,unit,package_spec,minimum_stock,active').order('sku').order('id')),
+    fetchAll(() => supabase.from('stock_balances').select('warehouse_id,product_id,location_code,lot_code,on_hand_quantity,reserved_quantity,available_quantity,updated_at').order('warehouse_id').order('product_id').order('location_code').order('lot_code')),
+    fetchAll(() => supabase.from('partners').select('id,partner_code,partner_type,name,tax_code,address,contact_name,phone,email,active').order('name').order('id')),
+    fetchAll(() => supabase.from('inbound_orders').select('id,document_code,inbound_type,supplier_id,status,created_on,delivery_on,receiver_name,receiver_phone,warehouse_id,created_by,created_at,created_by_profile:profiles!inbound_orders_created_by_fkey(full_name),partners(name),inbound_order_lines(id,product_id,expected_quantity,received_quantity,location_code,lot_code,products(sku,name,unit))').order('created_at', { ascending: false }).order('id', { ascending: false })),
+    fetchAll(() => supabase.from('outbound_orders').select('id,document_code,outbound_type,partner_id,partner_name,status,created_on,expected_delivery_date,receiver_name,receiver_phone,delivery_address,warehouse_id,created_by,created_at,created_by_profile:profiles!outbound_orders_created_by_fkey(full_name),partners(name),outbound_order_lines(id,product_id,requested_quantity,reserved_quantity,issued_quantity,location_code,lot_code,products(sku,name,unit))').order('created_at', { ascending: false }).order('id', { ascending: false })),
+    fetchAll(() => supabase.from('delivery_orders').select('id,delivery_code,outbound_order_id,delivery_sequence,status,expected_delivery_date,receiver_name,receiver_phone,delivery_address,carrier_name,driver_name,driver_phone,vehicle_plate,actual_delivery_at,received_by,proof_path,updated_at,created_at,outbound_orders(document_code,warehouse_id)').order('created_at', { ascending: false }).order('id', { ascending: false })),
+    fetchAll(() => supabase.from('delivery_order_lines').select('delivery_order_id,outbound_order_line_id,quantity_delivered').order('delivery_order_id').order('outbound_order_line_id')),
+    fetchAll(() => supabase.from('inventory_movements').select('id,warehouse_id,product_id,movement_type,quantity_delta,source_type,source_id,location_code,lot_code,created_by,created_at').order('created_at',{ascending:false}).order('id',{ascending:false})),
+    fetchAll(() => supabase.from('stock_adjustments').select('id,document_code,warehouse_id,reason,status,created_by,approved_by,created_at,approved_at,posted_at,stock_adjustment_lines(id,product_id,location_code,lot_code,counted_quantity,system_quantity,quantity_delta)').order('created_at',{ascending:false}).order('id',{ascending:false})),
+    fetchAll(() => supabase.from('stock_transfers').select('id,document_code,from_warehouse_id,to_warehouse_id,status,created_by,created_at,stock_transfer_lines(id,product_id,quantity,from_location_code,from_lot_code,to_location_code,to_lot_code)').order('created_at',{ascending:false}).order('id',{ascending:false})),
+    fetchAll(() => supabase.from('profiles').select('user_id,email,full_name,role,active,created_at').order('full_name').order('user_id')),
+    fetchAll(() => supabase.from('user_warehouses').select('user_id,warehouse_id').order('user_id').order('warehouse_id')),
+    fetchRecent(() => supabase.from('audit_log').select('id,actor_id,action,entity_type,entity_id,details,created_at,actor:profiles(full_name)').order('created_at',{ascending:false}).order('id',{ascending:false})),
+    fetchAll(() => supabase.from('order_documents').select('id,warehouse_id,inbound_order_id,delivery_order_id,file_name,storage_path,mime_type,file_size,uploaded_by,created_at').order('created_at',{ascending:false}).order('id',{ascending:false})),
   ]);
 
   for (const result of [warehouseResult, productResult, balanceResult, partnerResult, inboundResult, outboundResult, deliveryResult, deliveryLineResult, movementResult, adjustmentResult, transferResult, profileResult, scopeResult, auditResult, documentResult]) {
     if (result.error) throw result.error;
   }
 
-  const movements = [...(movementResult.data || [])];
-  for (let offset = movements.length; movements.length && movements.length % 1000 === 0; offset += 1000) {
-    const { data, error } = await supabase.from('inventory_movements')
-      .select('id,warehouse_id,product_id,movement_type,quantity_delta,source_type,source_id,location_code,lot_code,created_by,created_at')
-      .order('created_at', { ascending: false }).range(offset, offset + 999);
-    if (error) throw error;
-    movements.push(...(data || []));
-    if ((data || []).length < 1000) break;
-  }
+  const movements = movementResult.data || [];
 
   window.MKWMS_OUTBOUND_IDS = Object.fromEntries((outboundResult.data || []).map(row => [row.document_code, row.id]));
   window.MKWMS_INBOUND_IDS = Object.fromEntries((inboundResult.data || []).map(row => [row.document_code, row.id]));
@@ -118,7 +124,7 @@ async function loadWorkspace(user) {
       partnerName = String(values.get('supplier') || '').trim();
       const inboundKind = values.get('inboundType') || 'Nhập nhà cung cấp';
       const partnerKind = inboundKind === 'Nhập trả hàng' ? 'customer' : 'supplier';
-      let partner = (window.MKWMS_PARTNERS || []).find(p => p.name.toLocaleLowerCase() === partnerName.toLocaleLowerCase() && [partnerKind,'both'].includes(p.partner_type));
+      let partner = (window.MKWMS_PARTNERS || []).find(p => p.active && p.name.toLocaleLowerCase() === partnerName.toLocaleLowerCase() && [partnerKind,'both'].includes(p.partner_type));
       if (!partner) {
         const { data, error } = await supabase.from('partners').insert({
           partner_code: `${partnerKind === 'customer' ? 'KH' : 'NCC'}-${Date.now().toString().slice(-10)}`, partner_type: partnerKind, name: partnerName,
@@ -131,7 +137,7 @@ async function loadWorkspace(user) {
     } else {
       partnerName = String(values.get('partner') || '').trim();
       if (values.get('outboundType') === 'Xuất bán') {
-        let partner = (window.MKWMS_PARTNERS || []).find(p => p.name.toLocaleLowerCase() === partnerName.toLocaleLowerCase() && ['customer','both'].includes(p.partner_type));
+        let partner = (window.MKWMS_PARTNERS || []).find(p => p.active && p.name.toLocaleLowerCase() === partnerName.toLocaleLowerCase() && ['customer','both'].includes(p.partner_type));
         if (!partner) {
           const { data, error } = await supabase.from('partners').insert({
             partner_code: `KH-${Date.now().toString().slice(-10)}`, partner_type: 'customer', name: partnerName,
@@ -155,31 +161,50 @@ async function loadWorkspace(user) {
       receiver_name: values.get('shippingMethod') === 'Giao hàng' ? values.get('receiverName') : '',
       receiver_phone: values.get('shippingMethod') === 'Giao hàng' ? values.get('receiverPhone') : '',
       delivery_address: values.get('shippingMethod') === 'Giao hàng' ? values.get('address') : '',
-      status: action === 'draft' ? 'draft' : 'pending_approval',
+      submit_for_approval: action !== 'draft',
       created_on: createdOn,
-      created_by: user.id,
     } : {
       document_code: code,
       inbound_type: ({'Nhập nhà cung cấp':'supplier','Nhập trả hàng':'return','Nhập khác':'other'})[values.get('inboundType')] || 'supplier',
       supplier_id: partnerId,
       warehouse_id: warehouseId,
-      status: 'draft',
+      submit_for_approval: action !== 'draft',
       created_on: createdOn,
       delivery_on: values.get('deliveryDate') || null,
       receiver_name: String(values.get('receiverName') || '').trim(),
       receiver_phone: String(values.get('receiverPhone') || '').trim(),
-      created_by: user.id,
     };
-    const table = outbound ? 'outbound_orders' : 'inbound_orders';
-    const { data: order, error } = await supabase.from(table).insert(header).select('id,document_code').single();
-    if (error) throw error;
-    const detailRows = lines.map(line => outbound ? {
-      outbound_order_id: order.id, product_id: line.productId, requested_quantity: line.quantity, location_code: line.locationCode || '', lot_code: line.lotCode || '',
+    const rpcLines = lines.map(line => ({
+      product_id: line.productId, quantity: line.quantity,
+      location_code: line.locationCode || '', lot_code: line.lotCode || '',
+    }));
+    const { error } = await supabase.rpc(outbound ? 'create_outbound_order_with_lines' : 'create_inbound_order_with_lines', outbound ? {
+      p_document_code: header.document_code,
+      p_outbound_type: header.outbound_type,
+      p_partner_id: header.partner_id,
+      p_partner_name: header.partner_name,
+      p_warehouse_id: header.warehouse_id,
+      p_shipping_method: header.shipping_method,
+      p_expected_delivery_date: header.expected_delivery_date,
+      p_receiver_name: header.receiver_name,
+      p_receiver_phone: header.receiver_phone,
+      p_delivery_address: header.delivery_address,
+      p_created_on: header.created_on,
+      p_submit_for_approval: header.submit_for_approval,
+      p_lines: rpcLines,
     } : {
-      inbound_order_id: order.id, product_id: line.productId, expected_quantity: line.quantity, location_code: line.locationCode || '', lot_code: line.lotCode || '',
+      p_document_code: header.document_code,
+      p_inbound_type: header.inbound_type,
+      p_supplier_id: header.supplier_id,
+      p_warehouse_id: header.warehouse_id,
+      p_created_on: header.created_on,
+      p_delivery_on: header.delivery_on,
+      p_receiver_name: header.receiver_name,
+      p_receiver_phone: header.receiver_phone,
+      p_submit_for_approval: header.submit_for_approval,
+      p_lines: rpcLines,
     });
-    const { error: lineError } = await supabase.from(outbound ? 'outbound_order_lines' : 'inbound_order_lines').insert(detailRows);
-    if (lineError) throw new Error(`Phiếu ${code} đã lưu nhưng chi tiết chưa lưu: ${lineError.message}`);
+    if (error) throw error;
     await loadWorkspace(user);
     return code;
   };
@@ -201,22 +226,25 @@ async function loadWorkspace(user) {
       window.toast('Chọn hàng hóa và số lượng hợp lệ cho từng dòng.');
       return;
     }
+    const submitButton = document.getElementById('modalSubmit');
+    const draftButton = document.getElementById('modalSaveDraft');
+    if (submitButton?.disabled) return;
+    if (submitButton) submitButton.disabled = true;
+    if (draftButton) draftButton.disabled = true;
     try {
       const kind = window.MKWMS_MODAL_TYPE;
       const code = await window.mkwmsCreateOrder(kind, values, lines, action);
-      if (kind === 'inbound' && action !== 'draft') {
-        const { error } = await supabase.rpc('submit_inbound_order', { target_order: window.MKWMS_INBOUND_IDS[code] });
-        if (error) throw error;
-        await loadWorkspace(user);
-      }
       window.closeModal();
       window.navigate(kind);
-      window.toast(`Đã lưu phiếu ${code} vào Supabase.`);
+      window.toast(action === 'draft' ? `Đã lưu phiếu ${code} ở trạng thái bản nháp.` : `Đã gửi phiếu ${code} chờ duyệt.`);
     } catch (err) {
-      window.toast(err?.message || 'Không thể lưu phiếu.');
+      window.toast(err?.code === '23505' ? `Mã phiếu ${String(values.get('voucherCode')||'').trim()} đã được sử dụng. Hãy nhập mã khác.` : err?.message || 'Không thể lưu phiếu.');
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+      if (draftButton) draftButton.disabled = false;
     }
   };
-  window.saveModal = window.MKWMS_SAVE_ORDER_MODAL;
+  if (!window.MKWMS_OPERATIONS_READY) window.saveModal = window.MKWMS_SAVE_ORDER_MODAL;
   window.outboundAction = row => {
     const code = window.escapeHtml(row[0]);
     if (row[7] === 'Bản nháp') return `<button class="row-action" onclick="mkwmsSubmitOutbound('${code}')">Gửi duyệt</button>`;

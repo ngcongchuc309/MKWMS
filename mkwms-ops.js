@@ -1,5 +1,6 @@
 const db = () => window.MKWMS_DB;
 const state = () => window.MKWMS_STATE || {};
+window.MKWMS_OPERATIONS_READY = true;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const roleNames = {admin:'Quản trị viên',warehouse_manager:'Quản lý kho',warehouse_staff:'Nhân viên kho',sales:'Bán hàng',delivery:'Giao hàng',accounting:'Kế toán'};
 const statusNames = {draft:'Bản nháp',pending_approval:'Chờ duyệt',approved:'Đã duyệt',posted:'Đã ghi sổ',cancelled:'Đã hủy',reversed:'Đã đảo',waiting:'Chờ giao',in_transit:'Đang giao',partial:'Giao một phần',delivered:'Đã giao',failed:'Giao thất bại',overdue:'Quá hạn'};
@@ -124,7 +125,9 @@ window.openModal=(title,desc,type='')=>{
   if(['inbound','outbound'].includes(type)) {
     baseOpenModal(title,desc,type);
     if(type==='outbound')document.getElementById('itemRows')?.insertAdjacentHTML('afterend','<p class="notice">Để trống vị trí/lô để hệ thống tự giữ hàng từ các vị trí còn tồn khi duyệt. Nếu chọn vị trí, hệ thống sẽ giữ đúng vị trí đó.</p>');
+    document.getElementById('modalSubmit').textContent='Gửi duyệt';
     document.getElementById('modalSubmit').onclick=()=>window.saveModal('submit');
+    document.getElementById('modalSaveDraft').hidden=false;
     document.getElementById('modalSaveDraft').onclick=()=>window.saveModal('draft');
     return;
   }
@@ -181,6 +184,8 @@ window.saveModal=async actionValue=>{
   if(!String(window.MKWMS_MODAL_TYPE||'').startsWith('ops:')) return (window.MKWMS_SAVE_ORDER_MODAL||baseSave)?.(actionValue);
   const form=document.getElementById('opsForm');if(!form||!form.reportValidity())return;
   const type=window.MKWMS_MODAL_TYPE.slice(4), fd=new FormData(form), client=db(), current=state(), uid=current.user.id;
+  const submitButton=document.getElementById('modalSubmit'), draftButton=document.getElementById('modalSaveDraft');
+  if(submitButton)submitButton.disabled=true;if(draftButton)draftButton.disabled=true;
   const saved=async promise=>{const {error}=await promise;if(error)throw error;await window.MKWMS_REFRESH();window.closeModal();toast('Đã lưu thay đổi.');};
   try{
     if(type==='product'){
@@ -223,14 +228,13 @@ window.saveModal=async actionValue=>{
     }
     if(type==='delivery'){
       const d=current.deliveries.find(x=>x.id===fd.get('delivery_id'));if(!d)throw new Error('Không tìm thấy lệnh giao.');
-      let proofPath=fd.get('proof_path')||'';const proofFile=fd.get('proof_file');if(proofFile instanceof File&&proofFile.size){const order=current.outbounds.find(x=>x.id===d.outbound_order_id);if(!order)throw new Error('Không tìm thấy phiếu xuất liên quan.');proofPath=await uploadOrderDocument(proofFile,order.warehouse_id,d.id,'delivery');}
-      const patch={expected_delivery_date:fd.get('expected_delivery_date')||null,carrier_name:String(fd.get('carrier_name')||''),driver_name:String(fd.get('driver_name')||''),driver_phone:String(fd.get('driver_phone')||''),vehicle_plate:String(fd.get('vehicle_plate')||''),updated_at:new Date().toISOString()};
-      const {error:updateError}=await client.from('delivery_orders').update(patch).eq('id',d.id);if(updateError)throw updateError;
+      let proofPath=fd.get('proof_path')||'';const proofFile=fd.get('proof_file');if(proofFile instanceof File&&proofFile.size){const order=current.outbounds.find(x=>x.id===d.outbound_order_id);if(!order)throw new Error('Không tìm thấy phiếu xuất liên quan.');proofPath=await uploadOrderDocument(proofFile,order.warehouse_id,d.id,'delivery');form.elements.proof_path.value=proofPath;form.elements.proof_file.value='';}
       const lines=[...form.querySelectorAll('[data-line-id]')].map(row=>({line_id:row.dataset.lineId,quantity:Number(row.querySelector('[data-line-qty]').value)})).filter(x=>x.quantity>0);
       const stamp=fd.get('actual_delivery_at')?new Date(fd.get('actual_delivery_at')).toISOString():null;
-      const {error}=await client.rpc('record_delivery_attempt',{target_delivery:d.id,next_status:fd.get('status'),received_name:fd.get('received_by')||'',actual_time:stamp,proof:proofPath,delivered_lines:lines});if(error)throw error;await window.MKWMS_REFRESH();window.closeModal();toast('Đã cập nhật trạng thái và lịch sử giao hàng.');return;
+      const {error}=await client.rpc('update_delivery_and_record_attempt',{target_delivery:d.id,expected_date:fd.get('expected_delivery_date')||null,carrier:fd.get('carrier_name')||'',driver:fd.get('driver_name')||'',driver_contact:fd.get('driver_phone')||'',vehicle:fd.get('vehicle_plate')||'',next_status:fd.get('status'),received_name:fd.get('received_by')||'',actual_time:stamp,proof:proofPath,delivered_lines:lines});if(error)throw error;await window.MKWMS_REFRESH();window.closeModal();toast('Đã cập nhật trạng thái và lịch sử giao hàng.');return;
     }
   }catch(error){toast(error?.message||'Không thể lưu dữ liệu.');}
+  finally{if(submitButton)submitButton.disabled=false;if(draftButton)draftButton.disabled=false;}
 };
 
 function openReceive(o){window.MKWMS_EDIT_ID=o.id;editModal('receive',o)}
@@ -244,11 +248,13 @@ function openPartnerHistory(id){
   document.getElementById('modalbody').innerHTML='<h4>Phiếu nhập</h4>'+safeRows(['MÃ PHIẾU','NGÀY TẠO','TRẠNG THÁI','TỔNG SL'],inRows)+'<h4>Phiếu xuất</h4>'+safeRows(['MÃ PHIẾU','NGÀY TẠO','TRẠNG THÁI','TỔNG SL'],outRows)+'<h4>Giao hàng</h4>'+safeRows(['MÃ GIAO','PHIẾU XUẤT','DỰ KIẾN','TRẠNG THÁI'],deliveries);window.MKWMS_MODAL_TYPE='';document.getElementById('modalback').classList.add('open');
 }
 async function uploadOrderDocument(file,warehouseId,parentId,kind){
-  const allowed=['application/pdf','image/jpeg','image/png','image/webp','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-  if(!allowed.includes(file.type)||file.size>20*1024*1024)throw new Error('Chọn PDF, JPG, PNG, WEBP, DOCX hoặc XLSX dưới 20 MB.');
+  const mimeByExtension={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
+  const extension=file.name.split('.').pop().toLowerCase(),mime=file.type||mimeByExtension[extension]||'';
+  const allowed=Object.values(mimeByExtension);
+  if(!allowed.includes(mime)||file.size>20*1024*1024)throw new Error('Chọn PDF, JPG, PNG, WEBP, DOCX hoặc XLSX dưới 20 MB.');
   const clean=file.name.replace(/[^\p{L}\p{N}._-]+/gu,'_').slice(-120),path=`${warehouseId}/${parentId}/${crypto.randomUUID()}-${clean}`;
-  const client=db(),{error:uploadError}=await client.storage.from('mkwms-documents').upload(path,file,{upsert:false,contentType:file.type});if(uploadError)throw uploadError;
-  const row={warehouse_id:warehouseId,inbound_order_id:kind==='inbound'?parentId:null,delivery_order_id:kind==='delivery'?parentId:null,file_name:file.name,mime_type:file.type,file_size:file.size,storage_path:path,uploaded_by:state().user.id};
+  const client=db(),{error:uploadError}=await client.storage.from('mkwms-documents').upload(path,file,{upsert:false,contentType:mime});if(uploadError)throw uploadError;
+  const row={warehouse_id:warehouseId,inbound_order_id:kind==='inbound'?parentId:null,delivery_order_id:kind==='delivery'?parentId:null,file_name:file.name,mime_type:mime,file_size:file.size,storage_path:path,uploaded_by:state().user.id};
   const {error}=await client.from('order_documents').insert(row);if(error)throw error;
   return path;
 }

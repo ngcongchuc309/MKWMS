@@ -18,8 +18,8 @@ After the first administrator can log in, create/invite other Auth users and ass
 
 ## Operational rules
 
-- Outbound approval reserves available stock and creates a delivery order in the same database transaction.
-- Inbound receipts and outbound issues support partial batches and update stock only when posted.
+- Inbound/outbound header and item lines save atomically; submitted orders lock for edits; outbound approval reserves available stock and creates a delivery order in the same database transaction.
+- Inbound receipts and outbound issues support partial batches and update stock only when posted. Delivery assignment and attempt status save in one transaction.
 - A transfer applies both warehouse sides atomically. Count adjustments are posted after approval.
 - Opening balances are imported from the Excel template after preview and explicit confirmation. The RPC rejects occupied stock locations.
 - Posted transactions are immutable. Managers can request one controlled reversal with a required reason; reversal is rejected when it would consume reserved/insufficient stock.
@@ -40,6 +40,9 @@ After the first administrator can log in, create/invite other Auth users and ass
 - `20261028033200_fix_order_document_warehouse_policy`
 - `20261028033256_audit_order_document_uploads`
 - `20261028033401_allocate_outbound_stock_by_location`
+- `20261028034241_atomic_order_creation_and_indexes`
+- `20261028034745_atomic_delivery_and_policy_cleanup`
+- `20261028035335_lock_submitted_orders`
 
 ## Deployment
 
