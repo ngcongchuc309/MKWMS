@@ -46,6 +46,7 @@ After the first administrator can log in, create/invite other Auth users and ass
 - `20261028035335_lock_submitted_orders`
 - `20261028040749_legacy_client_order_line_window`
 - `20261028042415_mkwms_individual_outbound_approval`
+- `20261028042710_index_operational_foreign_keys`
 
 ## Deployment
 

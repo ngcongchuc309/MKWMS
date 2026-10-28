@@ -1,0 +1,37 @@
+-- Cover operational foreign keys that are not already the leading columns
+-- of an index. This improves joins and parent-row checks as the data grows.
+create index if not exists audit_log_actor_id_idx on public.audit_log(actor_id);
+create index if not exists delivery_orders_created_by_idx on public.delivery_orders(created_by);
+create index if not exists inbound_order_lines_product_id_idx on public.inbound_order_lines(product_id);
+create index if not exists inbound_orders_approved_by_idx on public.inbound_orders(approved_by);
+create index if not exists inbound_orders_created_by_idx on public.inbound_orders(created_by);
+create index if not exists inbound_orders_posted_by_idx on public.inbound_orders(posted_by);
+create index if not exists inbound_orders_supplier_id_idx on public.inbound_orders(supplier_id);
+create index if not exists inbound_orders_warehouse_id_idx on public.inbound_orders(warehouse_id);
+create index if not exists inbound_receipt_batches_created_by_idx on public.inbound_receipt_batches(created_by);
+create index if not exists inventory_movements_created_by_idx on public.inventory_movements(created_by);
+create index if not exists inventory_movements_warehouse_id_idx on public.inventory_movements(warehouse_id);
+create index if not exists inventory_reversal_batches_created_by_idx on public.inventory_reversal_batches(created_by);
+create index if not exists opening_balance_batches_created_by_idx on public.opening_balance_batches(created_by);
+create index if not exists order_documents_uploaded_by_idx on public.order_documents(uploaded_by);
+create index if not exists order_documents_warehouse_id_idx on public.order_documents(warehouse_id);
+create index if not exists outbound_issue_batches_created_by_idx on public.outbound_issue_batches(created_by);
+create index if not exists outbound_order_lines_product_id_idx on public.outbound_order_lines(product_id);
+create index if not exists outbound_orders_approved_by_idx on public.outbound_orders(approved_by);
+create index if not exists outbound_orders_created_by_idx on public.outbound_orders(created_by);
+create index if not exists outbound_orders_partner_id_idx on public.outbound_orders(partner_id);
+create index if not exists outbound_orders_posted_by_idx on public.outbound_orders(posted_by);
+create index if not exists outbound_orders_warehouse_id_idx on public.outbound_orders(warehouse_id);
+create index if not exists products_created_by_idx on public.products(created_by);
+create index if not exists products_updated_by_idx on public.products(updated_by);
+create index if not exists stock_adjustment_lines_product_id_idx on public.stock_adjustment_lines(product_id);
+create index if not exists stock_adjustments_approved_by_idx on public.stock_adjustments(approved_by);
+create index if not exists stock_adjustments_created_by_idx on public.stock_adjustments(created_by);
+create index if not exists stock_adjustments_warehouse_id_idx on public.stock_adjustments(warehouse_id);
+create index if not exists stock_balances_product_id_idx on public.stock_balances(product_id);
+create index if not exists stock_transfer_lines_product_id_idx on public.stock_transfer_lines(product_id);
+create index if not exists stock_transfer_lines_transfer_id_idx on public.stock_transfer_lines(transfer_id);
+create index if not exists stock_transfers_created_by_idx on public.stock_transfers(created_by);
+create index if not exists stock_transfers_from_warehouse_id_idx on public.stock_transfers(from_warehouse_id);
+create index if not exists stock_transfers_to_warehouse_id_idx on public.stock_transfers(to_warehouse_id);
+create index if not exists user_warehouses_warehouse_id_idx on public.user_warehouses(warehouse_id);
