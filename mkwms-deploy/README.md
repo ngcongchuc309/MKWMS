@@ -43,6 +43,7 @@ After the first administrator can log in, create/invite other Auth users and ass
 - `20261028034241_atomic_order_creation_and_indexes`
 - `20261028034745_atomic_delivery_and_policy_cleanup`
 - `20261028035335_lock_submitted_orders`
+- `20261028040749_legacy_client_order_line_window`
 
 ## Deployment
 
