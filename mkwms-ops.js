@@ -122,6 +122,7 @@ window.addEventListener('mkwms:workspace-loaded',e=>{if(e.detail) window.MKWMS_S
 
 const baseOpenModal=window.openModal;
 window.openModal=(title,desc,type='')=>{
+  document.getElementById('modalSubmit').hidden=false;
   if(['inbound','outbound'].includes(type)) {
     baseOpenModal(title,desc,type);
     if(type==='outbound')document.getElementById('itemRows')?.insertAdjacentHTML('afterend','<p class="notice">Để trống vị trí/lô để hệ thống tự giữ hàng từ các vị trí còn tồn khi duyệt. Nếu chọn vị trí, hệ thống sẽ giữ đúng vị trí đó.</p>');
