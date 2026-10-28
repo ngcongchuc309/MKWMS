@@ -1,0 +1,1 @@
+alter table public.delivery_order_lines add constraint delivery_order_lines_delivery_order_id_outbound_order_line_id_key unique(delivery_order_id,outbound_order_line_id);

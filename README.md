@@ -1,21 +1,22 @@
 # MKWMS
 
-MKWMS is a Vietnamese warehouse management interface for Minh Khanh. It is served as a static site and uses Supabase Auth and the Supabase Data API from the browser.
+Minh Khanh Warehouse Management System (MKWMS) is a static Vietnamese warehouse web app using Supabase Auth and the Supabase Data API in the browser. It contains no price or monetary fields. The browser config contains only the Supabase project URL and publishable key; never add a secret or service-role key.
+
+## Current workflows
+
+- Product and partner management, multi-warehouse stock lookup, reservation and availability.
+- Inbound orders: draft, submit, approval, partial receipt batches and posted stock movements.
+- Outbound orders: draft, submit, stock reservation on approval, automatic delivery creation, partial issue and posted stock movements.
+- Delivery scheduling, carrier/driver details, delivery attempts, received quantities, retry orders and private file uploads for delivery proof and inbound documents.
+- Stock transfers, count adjustments with approval, opening-balance Excel preview/validation/confirmation, and controlled stock reversal with a reason.
+- Role and warehouse-scope administration for existing Supabase Auth users; audit log and Excel reports.
+
+The database functions validate roles, warehouse scope, availability and quantities transactionally. Posted movement rows are append-only. A reversal creates a new audited movement; it never edits or deletes the original. See `mkwms-deploy/README.md` for the applied database migration list and initial setup notes.
 
 ## Deploy
 
-Import this repository into Vercel with the project root set to the repository root. No build command or build output directory is required. `index.html` is the entry page.
+Import the GitHub repository into Vercel with the project root set to the repository root. This is a static site: no build command or output directory is required. Pushes to `main` trigger the production deployment.
 
-The browser configuration in `mkwms-config.js` contains only the Supabase project URL and publishable key. Never add a Supabase secret or service-role key to this repository.
+## Access setup
 
-## First administrator
-
-Create the first account in Supabase Auth. Copy its Auth user UUID, then run the provisioning SQL in `mkwms-deploy/README.md` to add an administrator profile and grant warehouse scope. Users without an active profile and warehouse assignment cannot read operational data.
-
-## Data status
-
-The site reads products, warehouses, stock, partners, inbound orders, outbound orders, and delivery orders from Supabase after sign-in. Excel product imports are written after validation and explicit confirmation. Outbound approval is handled by a database RPC that reserves available stock and creates the associated delivery order atomically.
-
-The existing legacy table `public."DS Hàng hoá"` remains unchanged. Product master fields were copied from 228 complete rows; old stock quantities were not loaded into warehouse balances because the source data has no warehouse or location identity. Load a verified opening balance before approving outbound orders.
-
-Inbound receipt posting, outbound issue posting, inventory adjustment, user administration, and reports still need their production workflows wired to the database.
+Create or invite accounts in Supabase Auth, then use the MKWMS **Người dùng & phân quyền** page to assign the profile role and warehouse scope. An administrator must already be provisioned for the first login. Users without an active profile cannot enter the app.

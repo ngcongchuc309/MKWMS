@@ -1,34 +1,46 @@
-# MKWMS deployment setup
+# Supabase deployment and operations
 
-This folder contains the Supabase database migrations for MKWMS. All migrations in this folder have been applied to the connected project. The core migration copies complete product-master fields from the existing `public."DS Hàng hoá"` table into `public.products`. It leaves the original table and all its rows untouched. Follow-up migrations revoke API execution of the project's internal `rls_auto_enable()` utility and reserve available stock transactionally when an outbound order is approved.
+Project: `cstllaucehmhqoxdygdo` (`ap-northeast-1`). The SQL files in `supabase/migrations/` match the migrations applied to the connected project. They create the operational schema, row-level security, role and warehouse checks, audit logging, order workflows, transactional stock movements, import and reversal RPCs.
 
-The legacy table contains 231 rows: 228 have SKU, name, and unit values that can be copied into the new product master; 221 have numeric stock quantities, while 7 have blank or non-numeric quantities. Because the legacy table does not identify the warehouse/location for its stock quantities, the migration does not copy those quantities into operational stock balances. The current website is still a browser demo and does not yet read or write these tables.
+## First administrator
 
-## Supabase setup
-
-1. The connected Supabase project is `cstllaucehmhqoxdygdo` in `ap-northeast-1`. The migrations are already applied there.
-2. Create the first user in Supabase Auth. Then add that user's profile and warehouse access in SQL Editor, replacing the UUID with the Auth user's ID:
+Create a user in Supabase Auth, then provision the first administrator and warehouse scopes in the SQL Editor (replace the UUID with that Auth user ID):
 
 ```sql
-insert into public.profiles(user_id, full_name, role)
-values ('AUTH_USER_UUID', 'Minh Khanh Admin', 'admin');
+insert into public.profiles(user_id, full_name, role, active)
+values ('AUTH_USER_UUID', 'Administrator name', 'admin', true);
 
 insert into public.user_warehouses(user_id, warehouse_id)
-select 'AUTH_USER_UUID', id from public.warehouses;
+select 'AUTH_USER_UUID', id from public.warehouses where active;
 ```
 
-4. Create other users through Supabase Auth. Assign each a profile role and the appropriate rows in `user_warehouses`.
+After the first administrator can log in, create/invite other Auth users and assign their role and warehouse scope in MKWMS. User passwords remain managed by Supabase Auth.
 
-## Vercel setup
+## Operational rules
 
-The website is static, so Vercel can serve `outputs/index.html` directly. The login and data client are in `outputs/mkwms-supabase.js` and `outputs/mkwms-config.js`. The browser config contains only the public Supabase URL and publishable key. Never place a Supabase secret/service-role key in browser code or a public deployment.
+- Outbound approval reserves available stock and creates a delivery order in the same database transaction.
+- Inbound receipts and outbound issues support partial batches and update stock only when posted.
+- A transfer applies both warehouse sides atomically. Count adjustments are posted after approval.
+- Opening balances are imported from the Excel template after preview and explicit confirmation. The RPC rejects occupied stock locations.
+- Posted transactions are immutable. Managers can request one controlled reversal with a required reason; reversal is rejected when it would consume reserved/insufficient stock.
+- All exposed operational tables use RLS. RPCs require an authenticated user and enforce role/warehouse scope. Do not expose a service-role key.
 
-The migration enables Row Level Security and restricts data access to authenticated users and role/warehouse policies. Supabase requires both grants and RLS policies for exposed tables; this migration revokes broad client grants and adds table-specific access.
+## Current migrations
 
-## Still required before production deployment
+- `20261028020830_mkwms_core_schema`
+- `20261028021036_revoke_public_rls_utility`
+- `20261028021956_reserve_stock_on_outbound_approval`
+- `20261028022101_restrict_outbound_client_updates`
+- `20261028031038_mkwms_operational_workflows`
+- `20261028031236_mkwms_user_administration`
+- `20261028031817_mkwms_opening_balances_and_reversals`
+- `20261028031927_restore_delivery_attempt_line_uniqueness`
+- `20261028032350_limit_stock_reversal_to_safe_documents`
+- `20261028032733_mkwms_order_attachments`
+- `20261028033200_fix_order_document_warehouse_policy`
+- `20261028033256_audit_order_document_uploads`
+- `20261028033401_allocate_outbound_stock_by_location`
 
-- Upload the site files to the intended empty GitHub repository and create a separate Vercel project; the existing `mkwms2` project is linked to an unrelated Java repository.
-- Create the first user in Supabase Auth, then provision their `admin` profile and warehouse scope with the SQL above.
-- Initial-stock import/adjustment workflow and posting receipts/issues are not yet wired to the frontend. Outbound approval checks and reserves existing stock, so it will reject an order while no stock balance exists.
+## Deployment
 
-The migration includes products, partners, warehouses, stock balances, inbound/outbound orders, delivery orders, inventory movements, audit logs, and an approval RPC that creates the first delivery order when a delivery-required outbound order is approved.
+Vercel serves the repository root as a static site. There is no build step. Commit and push the changes to `main`; Vercel builds the new production deployment automatically. The Supabase migrations listed above are already applied to the connected project.
