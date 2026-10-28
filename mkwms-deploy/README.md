@@ -22,6 +22,7 @@ After the first administrator can log in, create/invite other Auth users and ass
 - Inbound receipts and outbound issues support partial batches and update stock only when posted. Delivery assignment and attempt status save in one transaction.
 - A transfer applies both warehouse sides atomically. Count adjustments are posted after approval.
 - Opening balances are imported from the Excel template after preview and explicit confirmation. The RPC rejects occupied stock locations.
+- Outbound approval is enforced by the database RPC. Administrators and warehouse managers retain approval through their role; administrators can grant the same permission to an individual user, still limited to that user's assigned warehouses. The assignment is written to the audit log.
 - Posted transactions are immutable. Managers can request one controlled reversal with a required reason; reversal is rejected when it would consume reserved/insufficient stock.
 - All exposed operational tables use RLS. RPCs require an authenticated user and enforce role/warehouse scope. Do not expose a service-role key.
 
@@ -44,6 +45,7 @@ After the first administrator can log in, create/invite other Auth users and ass
 - `20261028034745_atomic_delivery_and_policy_cleanup`
 - `20261028035335_lock_submitted_orders`
 - `20261028040749_legacy_client_order_line_window`
+- `20261028042415_mkwms_individual_outbound_approval`
 
 ## Deployment
 

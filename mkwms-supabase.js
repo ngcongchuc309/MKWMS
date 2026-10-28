@@ -17,7 +17,7 @@ function showError(message) {
 async function loadWorkspace(user) {
   showError('');
   const { data: profile, error: profileError } = await supabase
-    .from('profiles').select('user_id,full_name,role,active').eq('user_id', user.id).maybeSingle();
+    .from('profiles').select('user_id,full_name,role,active,can_approve_outbound').eq('user_id', user.id).maybeSingle();
   if (profileError) throw profileError;
   if (!profile || !profile.active) {
     showError('Tài khoản chưa được quản trị viên cấp vai trò trong MKWMS. Hãy liên hệ quản trị viên để kích hoạt.');
@@ -50,7 +50,7 @@ async function loadWorkspace(user) {
     fetchAll(() => supabase.from('inventory_movements').select('id,warehouse_id,product_id,movement_type,quantity_delta,source_type,source_id,location_code,lot_code,created_by,created_at').order('created_at',{ascending:false}).order('id',{ascending:false})),
     fetchAll(() => supabase.from('stock_adjustments').select('id,document_code,warehouse_id,reason,status,created_by,approved_by,created_at,approved_at,posted_at,stock_adjustment_lines(id,product_id,location_code,lot_code,counted_quantity,system_quantity,quantity_delta)').order('created_at',{ascending:false}).order('id',{ascending:false})),
     fetchAll(() => supabase.from('stock_transfers').select('id,document_code,from_warehouse_id,to_warehouse_id,status,created_by,created_at,stock_transfer_lines(id,product_id,quantity,from_location_code,from_lot_code,to_location_code,to_lot_code)').order('created_at',{ascending:false}).order('id',{ascending:false})),
-    fetchAll(() => supabase.from('profiles').select('user_id,email,full_name,role,active,created_at').order('full_name').order('user_id')),
+    fetchAll(() => supabase.from('profiles').select('user_id,email,full_name,role,active,can_approve_outbound,created_at').order('full_name').order('user_id')),
     fetchAll(() => supabase.from('user_warehouses').select('user_id,warehouse_id').order('user_id').order('warehouse_id')),
     fetchRecent(() => supabase.from('audit_log').select('id,actor_id,action,entity_type,entity_id,details,created_at,actor:profiles(full_name)').order('created_at',{ascending:false}).order('id',{ascending:false})),
     fetchAll(() => supabase.from('order_documents').select('id,warehouse_id,inbound_order_id,delivery_order_id,file_name,storage_path,mime_type,file_size,uploaded_by,created_at').order('created_at',{ascending:false}).order('id',{ascending:false})),

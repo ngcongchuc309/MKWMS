@@ -11,7 +11,7 @@ Minh Khanh Warehouse Management System (MKWMS) is a static Vietnamese warehouse 
 - Stock transfers, count adjustments with approval, opening-balance Excel preview/validation/confirmation, and controlled stock reversal with a reason.
 - Role and warehouse-scope administration for existing Supabase Auth users; audit log and Excel reports.
 
-Order headers and item lines are created atomically; delivery details and attempt status are saved together. Database functions validate roles, warehouse scope, availability and quantities transactionally. Posted movement rows are append-only. A reversal creates a new audited movement; it never edits or deletes the original. See `mkwms-deploy/README.md` for the applied database migration list and initial setup notes.
+Order headers and item lines are created atomically; delivery details and attempt status are saved together. Database functions validate roles, warehouse scope, availability and quantities transactionally. Administrators can grant individual outbound-approval rights from the user-management screen; the database RPC enforces that right and warehouse scope. Posted movement rows are append-only. A reversal creates a new audited movement; it never edits or deletes the original. See `mkwms-deploy/README.md` for the applied database migration list and initial setup notes.
 
 ## Deploy
 
